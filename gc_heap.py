@@ -4,11 +4,7 @@ PA 9: The Garbage Collector -- starter.
 Complete GCHeap below. See the assignment, Part B,
 for the full requirements.
 
-Named gc_heap.py, not gc.py, to avoid shadowing Python's own built-in
-gc module -- the assignment's Part B says "gc.py" but that name
-collides with the standard library, so this starter renames it.
-Submit under whichever name your instructor prefers; the test harness
-just imports from gc_heap.
+Use gc_heap.py as specified in the assignment and imported by the harness.
 
 Design note: GCHeap.allocate(obj) takes exactly one argument per the
 spec, so an allocated object that references OTHER heap handles must
@@ -38,16 +34,20 @@ class HeapNode:
 class GCHeap:
     def __init__(self) -> None:
         # TODO: internal storage -- e.g. {handle: (obj, refcount)} -- and a handle counter.
-        raise NotImplementedError
+        self.handles = {}
+        self.counter = 0
 
     def allocate(self, obj: Any) -> int:
         """Store obj, return a new handle. Initial refcount is 1 (the creating reference)."""
         # TODO
-        raise NotImplementedError
+        handle = self.counter
+        self.handles[handle] = {"object": obj, "refcount": 1}
+        self.counter += 1
+        return handle
 
     def incref(self, handle: int) -> None:
         # TODO
-        raise NotImplementedError
+        self.handles[handle]["refcount"] += 1
 
     def decref(self, handle: int) -> None:
         """
@@ -56,13 +56,23 @@ class GCHeap:
         get_child_handles() (if it has that method), recursively.
         """
         # TODO
-        raise NotImplementedError
+        self.handles[handle]["refcount"] -= 1
+        if self.handles[handle]["refcount"] == 0:
+            children = self.handles[handle]["object"].get_child_handles()
+            del self.handles[handle]
+            for h in children:
+                self.decref(h)
 
     def is_alive(self, handle: int) -> bool:
         # TODO
-        raise NotImplementedError
+        if handle in self.handles:
+            return self.handles[handle]["refcount"] > 0
 
     def live_count(self) -> int:
         """Number of currently-alive (refcount > 0) handles."""
         # TODO
-        raise NotImplementedError
+        count = 0
+        for handle in self.handles:
+            if self.handles[handle]["refcount"] > 0:
+                count += 1
+        return count
