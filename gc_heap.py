@@ -40,8 +40,9 @@ class GCHeap:
     def allocate(self, obj: Any) -> int:
         """Store obj, return a new handle. Initial refcount is 1 (the creating reference)."""
         # TODO
-        handle = self.counter
-        self.handles[handle] = {"object": obj, "refcount": 1}
+        handle = obj
+        new_object = HeapNode()
+        self.handles[handle] = {"handle": handle, "object": new_object, "refcount": 1}
         self.counter += 1
         return handle
 

@@ -10,6 +10,8 @@ gc_heap.py.
 import threading
 from typing import Any, Optional
 
+from collections import deque
+
 from gc_heap import GCHeap
 
 _CLOSED_SENTINEL = object()
@@ -19,7 +21,10 @@ class Channel:
     def __init__(self, capacity: int, heap: GCHeap) -> None:
         # TODO: internal buffer (a deque or list works), a threading.Condition,
         # and a "closed" flag.
-        raise NotImplementedError
+        self.queue = deque([], maxlen=capacity)
+        self.condition = threading.Condition()
+        self.heap = heap
+        self.closed = None
 
     def put(self, value: Any) -> None:
         """
@@ -28,7 +33,16 @@ class Channel:
         BEFORE enqueuing. Wake a waiting get() once space is available.
         """
         # TODO
-        raise NotImplementedError
+        with self.condition:
+            while len(self.queue) == self.queue.maxlen:
+                if self.closed == Channel.CLOSED:
+                    raise RuntimeError("Channel is closed")
+                else:
+                    self.condition.wait()
+            if self.closed != Channel.CLOSED:
+                self.heap.incref(value)
+                self.queue.append(value)
+                self.condition.notify_all()
 
     def get(self):
         """
@@ -40,12 +54,21 @@ class Channel:
         `Channel.CLOSED` instead of blocking forever.
         """
         # TODO
-        raise NotImplementedError
+        with self.condition:
+            while len(self.queue) == 0:
+                if self.closed == Channel.CLOSED:
+                    return self.closed
+                self.condition.wait()
+            value = self.queue.popleft()
+            self.condition.notify_all()
+            return value
 
     def close(self) -> None:
         """Mark closed and wake every blocked thread."""
         # TODO
-        raise NotImplementedError
+        self.closed = Channel.CLOSED
+        with self.condition:
+            self.condition.notify_all()
 
     CLOSED = _CLOSED_SENTINEL
 
@@ -76,7 +99,7 @@ def producer_consumer_driver(heap: GCHeap, values: list, channel: Channel, num_c
             handle = channel.get()
             if handle is Channel.CLOSED:
                 return
-            value = heap._objects[handle][0]  # PA 9 stores [object, refcount]
+            value = heap.handles[handle]["handle"] # PA 9 stores [object, refcount]
             with delivered_lock:
                 delivered.append((handle, value))
             heap.decref(handle)  # the consumer is done with its transferred reference
